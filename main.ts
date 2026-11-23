@@ -287,10 +287,10 @@ function parseUnified(lines: string[], strict: boolean): Edit[] {
   for (const s of sections) {
     let oldPath = s.oldPath;
     let newPath = s.newPath;
-    if (oldPath === null && s.diffOld !== null) oldPath = s.diffOld;
-    if (newPath === null && s.diffNew !== null) newPath = s.diffNew;
     if (oldPath === null && s.renameFrom !== null) oldPath = s.renameFrom;
     if (newPath === null && s.renameTo !== null) newPath = s.renameTo;
+    if (oldPath === null && s.diffOld !== null) oldPath = s.diffOld;
+    if (newPath === null && s.diffNew !== null) newPath = s.diffNew;
     if (oldPath === null) oldPath = '';
     if (newPath === null) newPath = '';
     const creation = oldPath === '/dev/null' || s.newFile;
@@ -308,16 +308,20 @@ function parseUnified(lines: string[], strict: boolean): Edit[] {
         if (tree.get(newPath) !== null) throw new Fail('exists', newPath);
         const createdLines: string[] = [];
         let noNewline = false;
+        let hasPlus = false;
+        let lastPlusNoNewline = false;
         for (const h of s.hunks) {
           const n: string[] = [];
+          let hunkHasPlus = false;
           for (const bl of h.body) {
             if (bl.startsWith(' ')) n.push(bl.slice(1));
             else if (bl === '') n.push('');
-            else if (bl.startsWith('+')) n.push(bl.slice(1));
+            else if (bl.startsWith('+')) { n.push(bl.slice(1)); hunkHasPlus = true; }
           }
           for (const line of n) createdLines.push(line);
-          noNewline = h.noNewline;
+          if (hunkHasPlus) { hasPlus = true; lastPlusNoNewline = h.noNewline; }
         }
+        if (hasPlus) noNewline = lastPlusNoNewline;
         tree.now.set(newPath, createdLines.length === 0 ? '' : createdLines.join('\n') + (noNewline ? '' : '\n'));
         return;
       }
